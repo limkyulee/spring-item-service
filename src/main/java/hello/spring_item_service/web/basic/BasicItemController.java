@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
 
@@ -42,12 +43,12 @@ public class BasicItemController {
 //  FIXME : 상품 등록 처리
 
 //  @PostMapping("/add")
-    public String addItemV1(@RequestParam String itemName,
-                            @RequestParam int price,
-                            @RequestParam Integer quantity,
-                            Model model
-                            ) {
-
+    public String addItemV1(
+            @RequestParam String itemName,
+            @RequestParam int price,
+            @RequestParam Integer quantity,
+            Model model
+    ) {
         Item item = new Item(itemName, price, quantity);
         itemRepository.save(item);
 
@@ -84,10 +85,32 @@ public class BasicItemController {
      * @ModelAttribute 자체 생략 가능
      * model.addAttribute(item) 자동 추가
      */
-    @PostMapping("/add")
+//    @PostMapping("/add")
     public String addItemV4(Item item) {
         itemRepository.save(item);
+
         return "basic/item";
+    }
+
+    /**
+     * REFACTOR : 새로고침 문제 해결
+     * 상품 저장 후 뷰 템플릿으로 이동하는 로직에서 상품 상세 화면으로 리다이렉트 하도록 수정.
+     * 마지막 호출한 내용이 GET /items/{id} 가 되어 새로고침 하더라고 동일한 내용으로 연속 등록되는 것을 방지함.
+     */
+//    @PostMapping("/add")
+    public String addItemV5(Item item) {
+        itemRepository.save(item);
+
+        return "redirect:/basic/items/" + item.getId();
+    }
+
+    @PostMapping("/add")
+    public String addItemV6(Item item, RedirectAttributes redirectAttributes) {
+        Item savedItem = itemRepository.save(item);
+        redirectAttributes.addAttribute("itemId", savedItem.getId());
+        redirectAttributes.addAttribute("status", true);
+
+        return "redirect:/basic/items/{itemId}";
     }
 
 //  FIXME : 상품 수정 폼

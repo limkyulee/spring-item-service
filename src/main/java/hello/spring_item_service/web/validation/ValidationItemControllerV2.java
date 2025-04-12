@@ -11,13 +11,12 @@ import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.ObjectError;
 import org.springframework.validation.ValidationUtils;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.View;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @Controller
@@ -26,7 +25,13 @@ import java.util.Map;
 public class ValidationItemControllerV2 {
 
     private final ItemRepository itemRepository;
-    private final View error;
+    private final ItemValidator itemValidator;
+
+//  REFACTOR : 해당 컨트롤러에 검증기 추가.
+    @InitBinder
+    public void initBinder(WebDataBinder binder) {
+        binder.addValidators(itemValidator);
+    }
 
     @GetMapping
     public String items(Model model) {
@@ -185,7 +190,7 @@ public class ValidationItemControllerV2 {
 //  REFACTOR : rejectValue, reject 사용하도록 로직 수정.
 //    > FieldError | rejectValue(@Nullable String field, String errorCode, @Nullable Object[] errorArgs, @Nullable String defaultMessage);
 //    > ObjectError | reject(String errorCode, @Nullable Object[] errorArgs, @Nullable String defaultMessage);
-    @PostMapping("/add")
+//    @PostMapping("/add")
     public String addItemV4(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
 
         log.info("bindindResult : {}", bindingResult.getObjectName());
@@ -213,6 +218,42 @@ public class ValidationItemControllerV2 {
             }
         }
 
+        // 검증에 실패한 경우 | 다시 view template 으로 이동.
+        if(bindingResult.hasErrors()){
+            log.info("error = {}", bindingResult);
+            return "validation/v2/addForm";
+        }
+
+        // 검증에 성공한 경우
+        Item savedItem = itemRepository.save(item);
+        redirectAttributes.addAttribute("itemId", savedItem.getId());
+        redirectAttributes.addAttribute("status", true);
+        return "redirect:/validation/v2/items/{itemId}";
+    }
+
+
+//  REFACTOR : 검증 로직 분리. | itemValidator 사용하도록 로직 수정.
+//    @PostMapping("/add")
+    public String addItemV5(@ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
+        // 검증 로직 호출.
+        itemValidator.validate(item, bindingResult);
+
+        // 검증에 실패한 경우 | 다시 view template 으로 이동.
+        if(bindingResult.hasErrors()){
+            log.info("error = {}", bindingResult);
+            return "validation/v2/addForm";
+        }
+
+        // 검증에 성공한 경우
+        Item savedItem = itemRepository.save(item);
+        redirectAttributes.addAttribute("itemId", savedItem.getId());
+        redirectAttributes.addAttribute("status", true);
+        return "redirect:/validation/v2/items/{itemId}";
+    }
+
+//  REFACTOR : @Validated | 검증기를 찾아서 실행하도록 함.
+    @PostMapping("/add")
+    public String addItemV6(@Validated @ModelAttribute Item item, BindingResult bindingResult, RedirectAttributes redirectAttributes) {
         // 검증에 실패한 경우 | 다시 view template 으로 이동.
         if(bindingResult.hasErrors()){
             log.info("error = {}", bindingResult);
